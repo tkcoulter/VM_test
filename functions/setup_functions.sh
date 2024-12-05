@@ -55,13 +55,16 @@ create_disk() {
     local vm_type="$2"
     local version="$3"
     
-    local vm_img_path="${vm_dir}/ubuntu-${vm_type}-${version}.qcow2"
+    # Generate a unique timestamp
+    local timestamp=$(date +%Y%m%d_%H%M%S)
+    local vm_base_name="ubuntu-${vm_type}-${version}"
+    local vm_unique_name="${vm_base_name}-${timestamp}"
+    local vm_img_path="${vm_dir}/${vm_unique_name}.qcow2"
     
-    if [ ! -f "$vm_img_path" ]; then
-        echo "Creating new VM disk image..." >&2
-        qemu-img create -f qcow2 "$vm_img_path" 20G >&2
-        chown libvirt-qemu:libvirt-qemu "$vm_img_path"
-    fi
+    echo "Creating new VM disk image with unique name: ${vm_unique_name}" >&2
+    qemu-img create -f qcow2 "$vm_img_path" 20G >&2
+    chown libvirt-qemu:libvirt-qemu "$vm_img_path"
     
-    echo "$vm_img_path"
+    # Return both the image path and the unique name
+    echo "${vm_img_path}|${vm_unique_name}"
 }

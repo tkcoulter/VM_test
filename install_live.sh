@@ -25,7 +25,6 @@ for package in $REQUIRED_PACKAGES; do
 done
 
 VERSION="$1"
-VM_NAME="ubuntu-test-live-${VERSION}"
 ISO_NAME="ubuntu-${VERSION}.1-live-server-amd64.iso"
 
 # Setup directories and get base path
@@ -42,11 +41,13 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Create disk
-VM_IMG_PATH=$(create_disk "$VM_DIR" "live" "$VERSION")
+# Create disk and get unique VM name
+DISK_INFO=$(create_disk "$VM_DIR" "live" "$VERSION")
+VM_IMG_PATH=$(echo "$DISK_INFO" | cut -d'|' -f1)
+VM_NAME=$(echo "$DISK_INFO" | cut -d'|' -f2)
 
 # Create and start the VM
-echo "Creating and starting VM..."
+echo "Creating and starting VM with name: $VM_NAME"
 virt-install \
     --name "$VM_NAME" \
     --memory 4096 \

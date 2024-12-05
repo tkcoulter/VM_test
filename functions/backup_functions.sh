@@ -144,16 +144,17 @@ restore_vm() {
     
     # Extract version from backup filename (assuming format contains version like 24.04)
     local version
-    if [[ $backup_path =~ ([0-9]+\.[0-9]+) ]]; then
+    if [[ $backup_path =~ ubuntu-[^-]+-([0-9]+\.[0-9]+) ]]; then
         version="${BASH_REMATCH[1]}"
     else
         version="24.04"  # Default to 24.04 if version not found in filename
     fi
 
-    # Use the same naming convention as test_vm.sh
-    local new_vm_name="ubuntu-test-${vm_type}-${version}"
+    # Generate timestamp for unique VM name
+    local timestamp=$(date +%Y%m%d_%H%M%S)
+    local new_vm_name="ubuntu-${vm_type}-${version}-${timestamp}"
     local vm_dir="${vm_base}/images"
-    local new_disk_path="${vm_dir}/ubuntu-${vm_type}-${version}.qcow2"
+    local new_disk_path="${vm_dir}/${new_vm_name}.qcow2"
     
     echo "=== Restoring VM Backup ===" >&2
     echo "Source backup: $(basename ${backup_path})" >&2
@@ -197,6 +198,6 @@ restore_vm() {
     fi
     
     echo "VM restored successfully as: $new_vm_name" >&2
-    echo "This VM follows the test_vm.sh naming convention and can be managed by clear_vms.sh" >&2
+    echo "The restored VM uses the new timestamp-based naming convention" >&2
     return 0
 }
