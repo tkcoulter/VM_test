@@ -5,9 +5,6 @@ echo "Stopping and removing VMs..."
 # Function to thoroughly clean up a VM
 cleanup_vm() {
     local vm_name="$1"
-    local vm_type="$2"
-    local version="$3"
-    local timestamp="$4"
     local vm_base="/var/lib/libvirt"
     local vm_img="${vm_base}/images/${vm_name}.qcow2"
     local max_attempts=30
@@ -104,13 +101,11 @@ cleanup_vm() {
         rm -f $nvram_pattern
     fi
 
-    # Remove autoinstall files for desktop
-    if [ "$vm_type" = "desktop" ]; then
-        local autoinstall_dir="${vm_base}/autoinstall"
-        if [ -d "$autoinstall_dir" ]; then
-            echo "Removing autoinstall directory: $autoinstall_dir"
-            rm -rf "$autoinstall_dir"
-        fi
+    # Remove autoinstall files
+    local autoinstall_dir="${vm_base}/autoinstall"
+    if [ -d "$autoinstall_dir" ]; then
+        echo "Removing autoinstall directory: $autoinstall_dir"
+        rm -rf "$autoinstall_dir"
     fi
 
     # Remove any leftover files in various libvirt directories
@@ -136,8 +131,8 @@ cleanup_vm() {
 
 # Function to get all test VMs
 get_test_vms() {
-    # Get all VMs that match our patterns (both old and new format)
-    virsh list --all | grep -E "ubuntu-(desktop|live)-[0-9]+\.[0-9]+" | awk '{print $2}' || true
+    # Get all VMs that start with ubuntu- prefix
+    virsh list --all | grep "ubuntu-" | awk '{print $2}' || true
 }
 
 echo "Identifying all VMs..."
@@ -151,13 +146,7 @@ else
     
     # Process each VM
     while IFS= read -r vm_name; do
-        # Match both old and new format VM names
-        if [[ "$vm_name" =~ ubuntu-(desktop|live)-([0-9.]+)(-[0-9]{8}_[0-9]{6})? ]]; then
-            vm_type="${BASH_REMATCH[1]}"
-            version="${BASH_REMATCH[2]}"
-            timestamp="${BASH_REMATCH[3]}"
-            cleanup_vm "$vm_name" "$vm_type" "$version" "$timestamp"
-        fi
+        cleanup_vm "$vm_name"
     done <<< "$test_vms"
 fi
 
@@ -165,7 +154,7 @@ fi
 echo "Verifying cleanup..."
 
 # Check for any remaining VMs
-remaining_vms=$(virsh list --all | grep -E "ubuntu-(desktop|live)-[0-9]+\.[0-9]+" || true)
+remaining_vms=$(virsh list --all | grep "ubuntu-" || true)
 if [ ! -z "$remaining_vms" ]; then
     echo "Warning: Some VMs may still exist:"
     echo "$remaining_vms"
@@ -184,5 +173,5 @@ systemctl restart libvirtd
 echo "VM cleanup complete. The next run of test_vm.sh will create fresh VMs."
 echo "Note: VM backups in /var/lib/libvirt/backups are preserved."
 echo "Usage reminder for test_vm.sh:"
-echo "  For desktop version: sudo ./test_vm.sh desktop 24.04"
-echo "  For live version: sudo ./test_vm.sh live 24.04"
+echo "  For desktop version: sudo ./test_vm.sh desktop 24.04 [name]"
+echo "  For live version: sudo ./test_vm.sh live 24.04 [name]"
