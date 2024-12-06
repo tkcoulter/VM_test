@@ -99,16 +99,16 @@ fi
 
 SELECTED_DIR="${BACKUP_DIRS[$DIR_INDEX]}"
 
-# List available VM backups of selected type
+# List all available .qcow2 backups
 echo
-echo "=== Available ${VM_TYPE^} VM Backups ==="
+echo "=== Available VM Backups ==="
 echo "Listing backups from directory: $(basename ${SELECTED_DIR})"
 echo
 
-# Updated pattern to match both old and new naming schemes
-BACKUPS=($(ls "${SELECTED_DIR}"ubuntu-${VM_TYPE}-*.qcow2 2>/dev/null))
+# List all .qcow2 files regardless of naming pattern
+BACKUPS=($(ls "${SELECTED_DIR}"*.qcow2 2>/dev/null))
 if [ ${#BACKUPS[@]} -eq 0 ]; then
-    echo "No ${VM_TYPE} VM backups found in selected directory"
+    echo "No VM backups found in selected directory"
     echo "Try selecting a different backup directory or create new backups using:"
     echo "sudo ./backup_vms.sh"
     exit 1
