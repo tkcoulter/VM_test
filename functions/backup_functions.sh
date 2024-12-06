@@ -30,9 +30,10 @@ get_vm_disk_path() {
     local vm_name="$1"
     local disk_path
     
-    disk_path=$(virsh domblklist "$vm_name" | grep -v "Source" | grep "^.*qcow2" | awk '{print $2}')
+    # Get the first disk path that's not empty
+    disk_path=$(virsh domblklist "$vm_name" | awk 'NR>2 && $2!="-" {print $2; exit}')
     if [ -z "$disk_path" ]; then
-        echo "Error: No qcow2 disk found for VM: $vm_name" >&2
+        echo "Error: No disk found for VM: $vm_name" >&2
         return 1
     fi
     if [ ! -f "$disk_path" ]; then
@@ -155,6 +156,7 @@ restore_vm() {
     local new_vm_name="ubuntu-${vm_type}-${version}-${timestamp}"
     local vm_dir="${vm_base}/images"
     local new_disk_path="${vm_dir}/${new_vm_name}.qcow2"
+    local temp_disk_path="${vm_dir}/${new_vm_name}_temp.qcow2"
     
     echo "=== Restoring VM Backup ===" >&2
     echo "Source backup: $(basename ${backup_path})" >&2
@@ -162,24 +164,34 @@ restore_vm() {
     echo "New disk path: ${new_disk_path}" >&2
     echo
     
-    # Copy backup to images directory
-    echo "Step 1/3: Copying backup file..." >&2
-    if ! cp "$backup_path" "$new_disk_path"; then
+    # Copy backup to temporary location
+    echo "Step 1/4: Copying backup file..." >&2
+    if ! cp "$backup_path" "$temp_disk_path"; then
         echo "Error: Failed to copy backup file" >&2
         return 1
     fi
-    chown libvirt-qemu:libvirt-qemu "$new_disk_path"
+    chown libvirt-qemu:libvirt-qemu "$temp_disk_path"
     
-    # Setup network
-    echo "Step 2/3: Setting up network..." >&2
-    if ! setup_network; then
-        echo "Error: Failed to setup network" >&2
-        rm -f "$new_disk_path"
+    # Rebase the image to remove backing file dependency
+    echo "Step 2/4: Rebasing disk image..." >&2
+    if ! qemu-img rebase -u -b "" "$temp_disk_path"; then
+        echo "Error: Failed to rebase disk image" >&2
+        rm -f "$temp_disk_path"
         return 1
     fi
     
+    # Create a fresh copy without backing file
+    echo "Step 3/4: Creating standalone disk image..." >&2
+    if ! qemu-img convert -O qcow2 "$temp_disk_path" "$new_disk_path"; then
+        echo "Error: Failed to create standalone disk image" >&2
+        rm -f "$temp_disk_path"
+        return 1
+    fi
+    chown libvirt-qemu:libvirt-qemu "$new_disk_path"
+    rm -f "$temp_disk_path"
+    
     # Create new VM from backup
-    echo "Step 3/3: Creating new VM..." >&2
+    echo "Step 4/4: Creating new VM..." >&2
     if ! virt-install \
         --name "$new_vm_name" \
         --memory 4096 \
@@ -188,7 +200,7 @@ restore_vm() {
         --import \
         --os-variant ubuntu22.04 \
         --network network=default,model=virtio \
-        --graphics vnc,listen=0.0.0.0 \
+        --graphics spice,listen=0.0.0.0 \
         --boot uefi \
         --noautoconsole; then
         

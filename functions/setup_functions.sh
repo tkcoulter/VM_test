@@ -54,14 +54,33 @@ create_disk() {
     local vm_dir="$1"
     local vm_type="$2"
     local version="$3"
+    local custom_name="$4"
     
-    # Generate a unique timestamp
-    local timestamp=$(date +%Y%m%d_%H%M%S)
-    local vm_base_name="ubuntu-${vm_type}-${version}"
-    local vm_unique_name="${vm_base_name}-${timestamp}"
+    local vm_unique_name
+    
+    if [ -n "$custom_name" ]; then
+        # Use custom name if provided, ensuring it has the correct prefix
+        if [[ "$custom_name" != ubuntu-* ]]; then
+            vm_unique_name="ubuntu-${custom_name}"
+        else
+            vm_unique_name="$custom_name"
+        fi
+    else
+        # Generate a unique timestamp-based name
+        local timestamp=$(date +%Y%m%d_%H%M%S)
+        local vm_base_name="ubuntu-${vm_type}-${version}"
+        vm_unique_name="${vm_base_name}-${timestamp}"
+    fi
+    
     local vm_img_path="${vm_dir}/${vm_unique_name}.qcow2"
     
-    echo "Creating new VM disk image with unique name: ${vm_unique_name}" >&2
+    # Check if VM with this name already exists
+    if virsh dominfo "$vm_unique_name" >/dev/null 2>&1; then
+        echo "Error: VM with name '${vm_unique_name}' already exists" >&2
+        return 1
+    fi
+    
+    echo "Creating new VM disk image with name: ${vm_unique_name}" >&2
     qemu-img create -f qcow2 "$vm_img_path" 20G >&2
     chown libvirt-qemu:libvirt-qemu "$vm_img_path"
     

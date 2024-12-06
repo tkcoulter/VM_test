@@ -5,13 +5,15 @@ source "$(dirname "$0")/vm_functions.sh"
 
 if [ "$EUID" -ne 0 ]; then
     echo "Error: This script must be run with sudo privileges"
-    echo "Usage: sudo $0 [version]"
+    echo "Usage: sudo $0 [version] [name]"
     exit 1
 fi
 
 if [ $# -lt 1 ]; then
-    echo "Usage: sudo $0 [version]"
-    echo "Example: sudo $0 24.04"
+    echo "Usage: sudo $0 [version] [name]"
+    echo "Examples:"
+    echo "  sudo $0 24.04           # Auto-generated name"
+    echo "  sudo $0 24.04 my-vm     # Custom name"
     exit 1
 fi
 
@@ -25,6 +27,7 @@ for package in $REQUIRED_PACKAGES; do
 done
 
 VERSION="$1"
+CUSTOM_NAME="$2"  # Optional parameter
 ISO_NAME="ubuntu-${VERSION}.1-desktop-amd64.iso"
 
 # Setup directories and get base path
@@ -42,7 +45,17 @@ if [ $? -ne 0 ]; then
 fi
 
 # Create disk and get unique VM name
-DISK_INFO=$(create_disk "$VM_DIR" "desktop" "$VERSION")
+if [ -n "$CUSTOM_NAME" ]; then
+    DISK_INFO=$(create_disk "$VM_DIR" "desktop" "$VERSION" "$CUSTOM_NAME")
+else
+    DISK_INFO=$(create_disk "$VM_DIR" "desktop" "$VERSION")
+fi
+
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to create disk"
+    exit 1
+fi
+
 VM_IMG_PATH=$(echo "$DISK_INFO" | cut -d'|' -f1)
 VM_NAME=$(echo "$DISK_INFO" | cut -d'|' -f2)
 
